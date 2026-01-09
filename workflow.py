@@ -368,5 +368,71 @@ def hosaki_gpr_demo():
     return
 
 
+def plot_pub():
+    def load_gpr_sweep_data(_gpr_sweep_d,sweep_steps=30):
+        gpst = pyemu.Pst(os.path.join(_gpr_sweep_d,"pest_gpr.pst"))
+        #load the gpr sweep results to viz the emulated objective function surface
+        sweep_gpr_pe = pd.read_csv(os.path.join(_gpr_sweep_d,"pest_gpr.0.par.csv"),index_col=0)
+        sweep_gpr_oe = pd.read_csv(os.path.join(_gpr_sweep_d,"pest_gpr.0.obs.csv"),index_col=0)
+        gpr_sweep_x = sweep_gpr_pe.loc[:,gpst.par_names[0]].values.reshape(sweep_steps,sweep_steps)
+        gpr_sweep_y = sweep_gpr_pe.loc[:,gpst.par_names[1]].values.reshape(sweep_steps,sweep_steps)
+        gpr_sweep_z = sweep_gpr_oe.loc[:,gpst.obs_names[0]].values.reshape(sweep_steps,sweep_steps)
+        gpr_sweep_stdev_z = sweep_gpr_oe.loc[:,gpst.obs_names[1]].values.reshape(sweep_steps,sweep_steps)
+        return gpr_sweep_x, gpr_sweep_y, gpr_sweep_z, gpr_sweep_stdev_z
+
+    iiters = [i.split("_")[-1] for i in os.listdir() if i.startswith("master_gpr_")]
+    iiters.sort()
+
+    fig,axs = plt.subplots(2,3,figsize=(7,4),sharex=True,sharey=True)
+    axs = axs.flatten()
+
+    pst = pyemu.Pst(os.path.join("hosaki_template","pest.pst"))
+    par = pst.parameter_data
+    sweep_x,sweep_y,sweep_z = load_hosaki_sweep_data("hosaki_sweep")
+    get_obj_map(axs[0],sweep_x,sweep_y,sweep_z)
+    axs[0].set_title("Truth",size=10)
+
+    data_dict = {}
+    data = None
+    m_d = "hosaki_model_master"
+    for iiter in iiters:
+        ax = axs[int(iiter)+1]
+        
+        
+        _m_d = m_d+ f"_{iiter}"
+        _gpr_t_d = f"template_gpr_{iiter}"
+        _gpr_m_d = _gpr_t_d.replace("template","master")
+        _sweep_md = _gpr_t_d.replace("template","sweep")
+
+        # load the training data
+        pst, training_dvpop, training_opop = load_hosaki_training_data(_m_d)
+        _data = training_dvpop.join(training_opop).copy()
+        if data is None:
+            data = _data
+        elif isinstance(data,pd.DataFrame):
+            data = pd.concat([data,_data],axis=0)
+            print("training data size:",data.shape)
+        gpr_sweep_x, gpr_sweep_y, gpr_sweep_z, gpr_sweep_stdev_z = load_gpr_sweep_data(_sweep_md)
+        get_obj_map(ax,gpr_sweep_x,gpr_sweep_y,gpr_sweep_z)
+        
+        ax.scatter(data.loc[:,pst.par_names[0]],data.loc[:,pst.par_names[1]],marker='.',c='w',s=10)
+
+        fnames = [i for i in os.listdir(_gpr_m_d) if i.endswith(".dv_pop.csv") and ".archive." not in i and i.count(".")==3]
+        fnames.sort(key=lambda x: int(x.split(".")[1]))
+        dvopt = pd.read_csv(os.path.join(_gpr_m_d,fnames[-1]),index_col=0)
+        ax.scatter(dvopt.loc[:,pst.par_names[0]],dvopt.loc[:,pst.par_names[1]],marker='.',c='r',s=10)
+        
+        ax.set_title(f"Iteration {iiter}",size=10)
+
+    for ax in axs:
+        ax.set_xlabel(pst.par_names[0],size=8)
+        ax.set_ylabel(pst.par_names[1],size=8)
+        ax.grid()
+
+    fig.tight_layout()
+    fig.savefig("hosaki_gpr_emulator_figure.png",dpi=300)
+    return
+
 if __name__ == "__main__":
-    hosaki_gpr_demo()
+    #hosaki_gpr_demo()
+    plot_pub()
