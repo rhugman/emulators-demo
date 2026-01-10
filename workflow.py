@@ -94,7 +94,7 @@ def plot_obj_map(_sweep_x,_sweep_y,_sweep_z,label="objective function",
     plt.close(fig)
 
 
-def run_hosaki_process_mou(t_d,m_d="hosaki_model_master",popsize=10):
+def run_hosaki_process_mou(t_d,m_d="hosaki_model_master",popsize=10,noptmax=-1,full_bounds=False,num_workers = 1):
     sys.path.insert(0,t_d)
     from forward_run import hosaki_ppw_worker as ppw_function
     port = 5544
@@ -104,12 +104,14 @@ def run_hosaki_process_mou(t_d,m_d="hosaki_model_master",popsize=10):
     if os.path.exists(m_d):
         shutil.rmtree(m_d)
     pst.pestpp_options["mou_population_size"] = popsize
-    pst.control_data.noptmax = -1
+    pst.control_data.noptmax = noptmax
     par = pst.parameter_data
     par.loc[pst.par_names[0],"parubnd"] = 3
     par.loc[pst.par_names[0],"parval1"] = 1.5
+    if full_bounds:
+        par.loc[:,"parlbnd"] = 0.0
+        par.loc[:,"parubnd"] = 5.0
     pst.write(os.path.join(t_d,"pest.pst"))
-    num_workers = 1
     pyemu.os_utils.start_workers(t_d,mou_path,"pest.pst",
                                     num_workers=num_workers,
                                     master_dir=m_d,worker_root='.',
@@ -433,6 +435,11 @@ def plot_pub():
     fig.savefig("hosaki_gpr_emulator_figure.png",dpi=300)
     return
 
+
+
 if __name__ == "__main__":
     #hosaki_gpr_demo()
-    plot_pub()
+    t_d = os.path.join("templates","hosaki_template")
+    m_d = "hosaki_model_master_full"
+    run_hosaki_process_mou(t_d, m_d=m_d,popsize=40,noptmax=100,full_bounds=True,num_workers=40)
+    #plot_pub()
