@@ -8,6 +8,33 @@ import flopy
 from pyemu.emulators.dsi import DSI
 import platform
 
+
+# set random seed
+np.random.seed(42)
+
+# set path to pestpp executables
+bin_path = os.path.join("bin")
+if "linux" in platform.platform().lower():
+    bin_path = os.path.join(bin_path, "linux")
+elif "macos" in platform.platform().lower():
+    bin_path = os.path.join(bin_path, "mac")
+else:
+    bin_path = os.path.join(bin_path, "win")
+
+exe = ""
+if "windows" in platform.platform().lower():
+    exe = ".exe"
+ies_path = os.path.abspath(os.path.join(bin_path, "pestpp-ies" + exe))
+mou_path = os.path.abspath(os.path.join(bin_path, "pestpp-mou" + exe))
+if not os.path.exists(ies_path):
+    pyemu.utils.get_pestpp(bin_path)
+    assert os.path.exists(ies_path), "pestpp-ies not found"
+if not os.path.exists(mou_path):
+    pyemu.utils.get_pestpp(bin_path)
+assert os.path.exists(mou_path), "pestpp-mou not found"
+
+
+
 def get_bins(dst,bin_path="bin",fnames=['pestpp-ies']):
     if platform.system() == "Windows":
         bin_path = os.path.join(bin_path, "win")
