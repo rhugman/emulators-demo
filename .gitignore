@@ -207,3 +207,8 @@ marimo/_lsp/
 __marimo__/
 #vscode
 *.code-workspace
+#macos
+.DS_Store
+#logs
+logs/
+*.log
