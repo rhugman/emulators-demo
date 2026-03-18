@@ -8,6 +8,7 @@ import pyemu
 import platform
 from pyemu.emulators import GPR
 
+USE_RUNSTOR = True
 # set random seed
 np.random.seed(42)
 
@@ -157,7 +158,7 @@ def prepare_gpr_emulator(data, input_names, output_names, pst_dir, case='pest', 
           n_restarts_optimizer=20,
           )
     gpr.fit()
-    gpr.prepare_pestpp(pst_dir,case,gpr_t_d=gpr_t_d,mou_path=mou_path)
+    gpr.prepare_pestpp(pst_dir,case,gpr_t_d=gpr_t_d,mou_path=mou_path, use_runstor=USE_RUNSTOR)
 
     gpst = pyemu.Pst(os.path.join(gpr_t_d,"pest_gpr.pst"))
     # some bits and bobs:
@@ -189,12 +190,15 @@ def run_gpr_mou(gpr_t_d,noptmax=8,inipop=None):
     gpst.write(os.path.join(gpr_t_d,"pest_gpr.pst"))
     gpr_m_d = gpr_t_d.replace("template","master")
     num_workers = 10
-    pyemu.os_utils.start_workers(gpr_t_d,mou_path,"pest_gpr.pst",
-                                num_workers=num_workers,
-                                master_dir=gpr_m_d,worker_root='.',
-                                ppw_function=pyemu.helpers.gpr_pyworker,
-                                    ppw_kwargs={"input_df":input_df,
-                                                "gpr":gpr})
+    if USE_RUNSTOR is True:
+        pyemu.os_utils.run(f"{mou_path} pest_gpr.pst /e", cwd=gpr_t_d, verbose=True)
+    else:
+        pyemu.os_utils.start_workers(gpr_t_d,mou_path,"pest_gpr.pst",
+                                    num_workers=num_workers,
+                                    master_dir=gpr_m_d,worker_root='.',
+                                    ppw_function=pyemu.helpers.gpr_pyworker,
+                                        ppw_kwargs={"input_df":input_df,
+                                                    "gpr":gpr})
 
     return
 
@@ -204,7 +208,10 @@ def run_gpr_sweep(gpr,gpr_t_d):
     input_df = pd.read_csv(os.path.join(gpr_t_d,"gpr_input.csv"),index_col=0)
     gpr_sweep_d = gpr_t_d.replace("template","sweep")
     num_workers = 10
-    pyemu.os_utils.start_workers(gpr_t_d,
+    if USE_RUNSTOR is True:
+        pyemu.os_utils.run(f"{ies_path} pest_gpr.pst /e", cwd=gpr_t_d, verbose=True)
+    else:
+        pyemu.os_utils.start_workers(gpr_t_d,
                                  ies_path,"pest_gpr.pst", num_workers=num_workers, worker_root=".",#port=5544,
                                  master_dir=gpr_sweep_d, verbose=True, 
                                  ppw_function=pyemu.helpers.gpr_pyworker,
