@@ -450,16 +450,15 @@ def prepare_dsi_dir(obsdata,train_data,groups,fit_groups,transforms=None):
     return dsi, pst
 
 def run_dsi(t_d="dsi_template",tag="row",_use_runstor=True):
-    if tag=="row":
-        dsi = DSI.load(os.path.join(t_d,"dsi.pickle"))
-    elif tag.startswith("standard"):
-        dsi = DSI.load(os.path.join(t_d,"dsi.pickle"))
+
+    dsi = DSI.load(os.path.join(t_d,"dsi.pickle"))
     pvals = pd.read_csv(os.path.join(t_d, "dsi_pars.csv"), index_col=0)
     md = f"master_dsi"+f"_{tag}"
     num_workers = 15
     worker_root = "."
     if _use_runstor is True:
-        pyemu.os_utils.run("pestpp-ies dsi.pst /e", cwd=t_d, verbose=True)
+        shutil.copytree(t_d,md)
+        pyemu.os_utils.run("pestpp-ies dsi.pst /e", cwd=md, verbose=True)
 
     else:
         pyemu.os_utils.start_workers(
