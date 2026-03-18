@@ -1205,6 +1205,8 @@ def run_pstfrom(template_ws):
     pe.to_binary(os.path.join(template_ws,"prior_pe.jcb")) #writes the parameter ensemble to binary file
     assert pe.shape[1] == pst.npar
 
+    pst.pestpp_options['ies_parameter_ensemble'] = 'prior_pe.jcb'
+
 
 
     return
