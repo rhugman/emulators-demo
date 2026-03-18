@@ -160,6 +160,7 @@ def autocorrelated_draw(pst,struct_dict,time_distance_col="distance",num_reals=1
     passed_names = []
     nz_names = pst.nnz_obs_names
     [passed_names.extend(obs) for gs,obs in struct_dict.items()]
+    passed_names.sort()
     missing = list(set(passed_names) - set(nz_names))
     if len(missing) > 0:
         raise Exception("the following obs in struct_dict were not found in the nz obs names"+str(missing))
@@ -2028,12 +2029,14 @@ def _process_array_file(model_file, df):
          header = [fp.readline() for _ in range(skip)]
     org_arr = np.loadtxt(org_file[0], ndmin=2, skiprows=skip)
 
-
     if "mlt_file" in df_mf.columns:
         for mlt, operator in zip(df_mf.mlt_file, df_mf.operator):
             if pd.isna(mlt):
                 continue
-            mlt_data = np.loadtxt(mlt, ndmin=2)
+            if str(mlt).endswith(".npy"):
+                mlt_data = np.atleast_2d(np.load(mlt))
+            else:
+                mlt_data = np.loadtxt(mlt, ndmin=2)
             if 1 in list(mlt_data.shape): # if 1d arrays
                 org_arr = org_arr.reshape(mlt_data.shape)
             if org_arr.shape != mlt_data.shape:
@@ -2140,65 +2143,64 @@ def apply_array_pars(arr_par="arr_pars.csv", arr_par_file=None, chunk_len=50):
     #         print("error removing mult array:{0}".format(fname))
 
     if "pp_file" in df.columns:
-        print("starting fac2real", datetime.now())
-        pp_df = df.loc[
-            df.pp_file.notna(),
-            [
-                "pp_file",
-                "fac_file",
-                "mlt_file",
-                "pp_fill_value",
-                "pp_lower_limit",
-                "pp_upper_limit",
-            ],
-        ].rename(
-            columns={
-                "fac_file": "factors_file",
-                "mlt_file": "out_file",
-                "pp_fill_value": "fill_value",
-                "pp_lower_limit": "lower_lim",
-                "pp_upper_limit": "upper_lim",
-            }
-        )
-        # don't need to process all (e.g. if const. mults apply across kper...)
-        pp_args = pp_df.drop_duplicates().to_dict("records")
-        num_ppargs = len(pp_args)
-        num_chunk_floor = num_ppargs // chunk_len
-        main_chunks = (
-            np.array(pp_args)[: num_chunk_floor * chunk_len]
-            .reshape([-1, chunk_len])
-            .tolist()
-        )
-        remainder = np.array(pp_args)[num_chunk_floor * chunk_len :].tolist()
-        chunks = main_chunks + [remainder]
-        print("number of chunks to process:", len(chunks))
-        if len(chunks) == 1:
-            _process_chunk_fac2real(chunks[0], 0)
-        else:
-            with mp.get_context("spawn").Pool(
-                    processes=min(mp.cpu_count(), 60)) as pool:
-                x = [
-                    pool.apply_async(_process_chunk_fac2real, args=(chunk, i))
-                    for i, chunk in enumerate(chunks)
-                ]
-                [xx.get() for xx in x]
-                pool.close()
-                pool.join()
-        # procs = []
-        # for chunk in chunks:
-        #     p = mp.Process(target=_process_chunk_fac2real, args=[chunk])
-        #     p.start()
-        #     procs.append(p)
-        # for p in procs:
-        #     p.join()
-
-        print("finished fac2real", datetime.now())
+        sel = df.pp_file.notna()
+        if not sel.empty:
+            print("starting fac2real", datetime.now())
+            pp_df = df.loc[
+                sel,
+                [
+                    "pp_file",
+                    "fac_file",
+                    "mlt_file",
+                    "pp_fill_value",
+                    "pp_lower_limit",
+                    "pp_upper_limit",
+                    "pp_mpts",
+                    "pp_transform",
+                    "shape"
+                ],
+            ].rename(
+                columns={
+                    "fac_file": "factors_file",
+                    "mlt_file": "out_file",
+                    "pp_fill_value": "fill_value",
+                    "pp_lower_limit": "lower_lim",
+                    "pp_upper_limit": "upper_lim",
+                    "pp_mpts" : "mpts",
+                    "pp_transform" : "transform"
+                }
+            )
+            # don't need to process all (e.g. if const. mults apply across kper...)
+            pp_args = pp_df.drop_duplicates().to_dict("records")
+            num_ppargs = len(pp_args)
+            num_chunk_floor = num_ppargs // chunk_len
+            main_chunks = (
+                np.array(pp_args)[: num_chunk_floor * chunk_len]
+                .reshape([-1, chunk_len])
+                .tolist()
+            )
+            remainder = np.array(pp_args)[num_chunk_floor * chunk_len :].tolist()
+            chunks = main_chunks + [remainder]
+            print("number of chunks to process:", len(chunks))
+            if len(chunks) == 1:
+                _process_chunk_fac2real(chunks[0], 0)
+            else:
+                with mp.get_context("spawn").Pool(
+                        processes=min(mp.cpu_count(), 60)) as pool:
+                    x = [
+                        pool.apply_async(_process_chunk_fac2real, args=(chunk, i))
+                        for i, chunk in enumerate(chunks)
+                    ]
+                    [xx.get() for xx in x]
+                    pool.close()
+                    pool.join()
+            print("finished fac2real", datetime.now())
 
     print("starting arr mlt", datetime.now())
     uniq = df.model_file.unique()  # unique model input files to be produced
     num_uniq = len(uniq)  # number of input files to be produced
     # number of files to send to each processor
-    # lazy plitting the files to be processed into even chunks
+    # lazy splitting the files to be processed into even chunks
     num_chunk_floor = num_uniq // chunk_len  # number of whole chunks
     main_chunks = (
         uniq[: num_chunk_floor * chunk_len].reshape([-1, chunk_len]).tolist()
@@ -2546,7 +2548,8 @@ def _process_list_file(model_file, df):
             raise Exception("error setting mlt index_cols: " + str(e))
 
         if not hasattr(mlt, "mlt_file") or pd.isna(mlt.mlt_file):
-            print("null mlt file for org_file '" + org_file + "', continuing...")
+            #print("null mlt file for org_file '" + org_file + "', continuing...")
+            pass
         else:
             mlts = pd.read_csv(mlt.mlt_file)
             # get mult index to align with org_data,
@@ -4238,7 +4241,7 @@ def apply_threshold_pars(csv_file):
 
 
 def prep_for_gpr(pst_fname,input_fnames,output_fnames,gpr_t_d="gpr_template",t_d="template",gp_kernel=None,nverf=0,
-                 plot_fits=False,apply_standard_scalar=False, include_emulated_std_obs=False,mou_path="pestpp-mou"):
+                 plot_fits=False,apply_standard_scalar=False, include_emulated_std_obs=False):
     """helper function to setup a gaussian-process-regression (GPR) emulator for outputs of interest.  This
     is primarily targeted at low-dimensional settings like those encountered in PESTPP-MOU
 
@@ -4526,7 +4529,7 @@ def prep_for_gpr(pst_fname,input_fnames,output_fnames,gpr_t_d="gpr_template",t_d
             shutil.copy2(os.path.join(t_d,pp_bin),os.path.join(gpr_t_d,pp_bin))
 
     try:
-        pyemu.os_utils.run(f"{mou_path} {gpst_fname}",cwd=gpr_t_d)
+        pyemu.os_utils.run("pestpp-mou {0}".format(gpst_fname),cwd=gpr_t_d)
     except Exception as e:
         print("WARNING: pestpp-mou test run failed: {0}".format(str(e)))
     gpst.control_data.noptmax = pst.control_data.noptmax
@@ -4607,21 +4610,20 @@ def gpr_pyworker_legacy(pst,host,port,input_df=None,mdf=None):
 
 
 def gpr_pyworker(pst,host,port,input_df=None,mdf=None,gpr=False):
-
+    from pyemu.emulators import GPR
     if gpr is False:
         print("WARNING: using legacy gpr_pyworker function, which is deprecated")
         gpr_pyworker_legacy(pst,host,port,input_df=input_df,mdf=mdf)
     else:
-        from pyemu.emulators import GPR
         import pandas as pd
+        from pyemu.emulators import GPR
+        
         if gpr is True:
-            from pyemu.emulators import GPR
             gpr = GPR.load("gpr_emulator.pkl")
-            assert isinstance(gpr, GPR), "gpr must be a GPR object or True to load from 'gpr_emulator.pkl'"
-        elif isinstance(gpr,pyemu.emulators.GPR):
-            pass
-        else:
-            raise Exception("gpr must be a pyemu.emulators.GPR object or True to load from 'gpr_emulator.pkl'")
+
+        assert isinstance(gpr, GPR), "gpr must be a GPR object or True to load from 'gpr_emulator.pkl'"
+        
+
         
         # if explicit args weren't passed, get the default ones...
         if input_df is None:
@@ -4692,8 +4694,155 @@ def gpr_forward_run():
     mdf.loc[:,["output_name","sim","sim_std"]].to_csv("gpr_output.csv",index=False)
     return mdf
 
+def gpr_file_forward_run(emu_file="gpr_emulator.pkl", input_file="gpr_input.csv", output_file="gpr_output.csv"):
+    import os
+    import pandas as pd
+    import numpy as np
+    from pyemu.emulators import GPR
+    
+    try:
+        # Load Emulator
+        emu = GPR.load(emu_file)
+        
+        # Read Inputs
+        if not os.path.exists(input_file):
+             raise FileNotFoundError(f"Input file {input_file} not found")
+             
+        input_df = pd.read_csv(input_file, index_col=0)
+        
+        # Determine format (parval1 column or direct columns)
+        if "parval1" in input_df.columns:
+            inputs = input_df["parval1"].T.to_frame().T
+        else:
+             inputs = input_df
+             
+        # Predict
+        return_std = getattr(emu, "return_std", False) # Default to False if not set
+        
+        res = emu.predict(inputs, return_std=return_std)
+        
+        pred = None
+        std = None
 
-def dsi_runstore_forward_run(ws='.'):
+        if isinstance(res, tuple):
+             pred, std = res
+        else:
+             pred = res
+        
+        # Handle formats (we expect single row Series or DataFrame)
+        if isinstance(pred, pd.DataFrame):
+            pred = pred.iloc[0]
+        if std is not None and isinstance(std, pd.DataFrame):
+            std = std.iloc[0]
+            
+        with open(output_file, 'w') as f:
+            # Write Header
+            if std is not None:
+                f.write("obsnme,obsval,obsstd\n")
+            else:
+                f.write("obsnme,obsval\n")
+            
+            for name in pred.index:
+                val = pred[name]
+                line = f"{name},{val}"
+                if std is not None:
+                     # Assumes std index matches pred index
+                     if name in std.index:
+                        std_val = std[name]
+                     else:
+                        std_val = 0.0 # Should not happen if indices align
+                     line += f",{std_val}"
+                f.write(line + "\n")
+                
+    except Exception as e:
+        print(f"Error in gpr_file_forward_run: {e}")
+        raise e
+
+def gpr_runstore_forward_run(ws='.', emu_file="gpr_emulator.pkl", pst_name="gpr"):
+    import os
+    import pandas as pd
+    import numpy as np
+    from pyemu.utils.helpers import RunStor
+    from pyemu.emulators import GPR
+    
+    try:
+        gpr = GPR.load(os.path.join(ws, emu_file))
+    except Exception as e:
+        raise Exception("failed to load GPR from {0}: {1}".format(emu_file, str(e)))
+
+    fname = os.path.join(ws, f"{pst_name}.rns")
+    if not os.path.exists(fname):
+         # Try as fallback
+        fname = [f for f in os.listdir(ws) if f.endswith(".rns")][0]
+        print(f"Using runstor file: {fname}")
+
+    
+    if not os.path.exists(fname):
+        raise FileNotFoundError(f"Could not find run storage file {fname} in {ws}")
+
+    header, par_names, obs_names = RunStor.file_info(fname)
+    rs = RunStor(fname)
+    df = rs.get_data()
+
+    # Get GPR input names
+    if not hasattr(gpr, "input_names"):
+         # Try to infer from 1st element of prediction if not available? 
+         # GPR object usually has input_names.
+         raise AttributeError("GPR object missing 'input_names' attribute")
+    
+    input_names = gpr.input_names
+    
+    # Check alignment
+    missing_pars = [p for p in input_names if p not in par_names]
+    # In runstor, parameter names might be lower case? RunStor.file_info lower()s them.
+    # We should ensure GPR input_names are checked case-insensitively or consistent.
+    if missing_pars:
+         # Try minimal matching? 
+         pass
+
+    # Extract inputs
+    # If runstor has extra parameters, that's fine, we just take what we need.
+    pvals = df.loc[:, input_names]
+    
+    # Predict (Batch)
+    return_std = getattr(gpr, "return_std", False)
+    res = gpr.predict(pvals, return_std=return_std)
+    
+    pred = None
+    std = None
+    if isinstance(res, tuple):
+         pred, std = res
+    else:
+         pred = res
+         
+    # Update RunStor DataFrame
+    # pred is DataFrame (n_samples, n_outputs)
+    # std is DataFrame (n_samples, n_outputs)
+    
+    # Update predictions
+    # Only update columns that exist in obs_names
+    # gpr.output_names should match obs_names
+    
+    valid_cols = [c for c in pred.columns if c in obs_names]
+    if valid_cols:
+        df.loc[:, valid_cols] = pred.loc[:, valid_cols].values
+        
+    # Update stds if they exist
+    if std is not None:
+         # Standard naming convention: name + "_gprstd" ?
+         # Or does the instruction file map them differently?
+         # In _get_emulator_observations we used name + "_gprstd"
+         for col in std.columns:
+             std_col = f"{col}_gprstd"
+             if std_col in obs_names:
+                 df.loc[:, std_col] = std.loc[:, col].values
+
+    rs.update(df)
+    return
+
+
+
+def dsi_runstore_forward_run(ws='.', pst_name="dsi"):
     import os
     from pyemu.utils.helpers import RunStor
     try:
@@ -4708,7 +4857,9 @@ def dsi_runstore_forward_run(ws='.'):
         except Exception as e:
             raise Exception("failed to load DSI or DSIAE from dsi.pickle:{0}".format(str(e)))
 
-    fname = os.path.join(ws,"dsi.rns")
+    fname = os.path.join(ws, f"{pst_name}.rns")
+    if not os.path.exists(fname):
+        fname = os.path.join(ws, "dsi.rns")
     header, par_names, obs_names = RunStor.file_info(fname)
     rs = RunStor(fname)
     df = rs.get_data()
@@ -4727,6 +4878,61 @@ def dsi_runstore_forward_run(ws='.'):
 
     rs.update(df)
     return
+
+def dsi_file_forward_run(emu_file="dsi.pickle", input_file="dsi_pars.csv", output_file="dsi_sim_vals.csv"):
+    import os
+    import pandas as pd
+    import traceback
+    
+    try:
+        # Try loading as DSIAE first, then DSI
+        try:
+            from pyemu.emulators import DSIAE, DSI
+        except ImportError:
+            # Should be available in standard installation
+            raise ImportError("pyemu.emulators.DSI and/or DSIAE could not be imported")
+
+        emu = None
+        # Try DSIAE.load (checks for folder/zip etc)
+        try:
+             emu = DSIAE.load(emu_file)
+        except:
+             pass
+        
+        # If not loaded, try DSI.load (standard pickle)
+        if emu is None:
+             try:
+                 emu = DSI.load(emu_file)
+             except Exception as e:
+                 raise Exception(f"Failed to load emulator from {emu_file}. Tried DSIAE.load and DSI.load. Error: {e}")
+
+        if not os.path.exists(input_file):
+        # ...
+             raise FileNotFoundError(f"Input file {input_file} not found")
+             
+        input_df = pd.read_csv(input_file, index_col=0)
+        
+        # Determine format
+        if "parval1" in input_df.columns:
+            inputs = input_df["parval1"].T.to_frame().T
+        else:
+             inputs = input_df
+        
+        # Predict
+        pred_res = emu.predict(inputs)
+        
+        # Flatten
+        if isinstance(pred_res, pd.DataFrame):
+            pred_res = pred_res.iloc[0]
+            
+        # Write Output
+        pred_res.name = "simval"
+        pred_res.to_csv(output_file, header=True)
+        
+    except Exception as e:
+        print(f"Error in dsi_file_forward_run: {e}")
+        traceback.print_exc()
+        raise e
 
 def dsi_forward_run(pvals,dsi,write_csv=False):
     if not isinstance(dsi,pyemu.emulators.DSI) and not isinstance(dsi,pyemu.emulators.DSIAE):
@@ -4781,7 +4987,10 @@ def dsivc_forward_run(md_ies=".",ies_exe_path="pestpp-ies",num_workers=1):
     obs.loc[decvars.index,"obsval"] = decvars.values
 
     # update the obs+noise file with the decvar values to ensure NO NOISE on the decvars
-    noise = pyemu.ObservationEnsemble.from_binary(pst_dsi,os.path.join(md_ies,"dsi.obs+noise.jcb"))
+    try:
+        noise = pyemu.ObservationEnsemble.from_binary(pst_dsi,os.path.join(md_ies,"dsi.obs+noise.jcb"))
+    except:
+         noise = pyemu.ObservationEnsemble.from_csv(pst_dsi,os.path.join(md_ies,"dsi.obs+noise.csv"))
     # check that all of decvars.index are in noise.columns
     assert len([i for i in decvars.index if i not in noise.columns.tolist()]) == 0, "some decvars not in noise columns"
     # update columns in noise if column name in decvars.index
@@ -4819,13 +5028,16 @@ def dsivc_forward_run(md_ies=".",ies_exe_path="pestpp-ies",num_workers=1):
                                         reuse_master =True,
                                         ppw_function=pyemu.helpers.dsi_pyworker,
                                         ppw_kwargs={"dsi":dsi,"pvals":pvals})  
-    assert os.path.exists(os.path.join(md_ies,f"dsi.{noptmax}.obs.jcb")), f"dsi.{noptmax}.obs.jcb not found...pst failed?"
+    assert os.path.exists(os.path.join(md_ies,f"dsi.{noptmax}.obs.jcb")) or os.path.exists(os.path.join(md_ies,f"dsi.{noptmax}.obs.csv")), f"dsi.{noptmax}.obs.[jcb|csv] not found...pst failed?"
 
 
     #TODO: checks on PDC or Eulerian distance to training data?
 
     #postprocess stack
-    oe = pyemu.ObservationEnsemble.from_binary(pst_dsi,os.path.join(md_ies,f"dsi.{noptmax}.obs.jcb"))
+    try:
+        oe = pyemu.ObservationEnsemble.from_binary(pst_dsi,os.path.join(md_ies,f"dsi.{noptmax}.obs.jcb"))
+    except:
+        oe = pyemu.ObservationEnsemble.from_csv(pst_dsi,os.path.join(md_ies,f"dsi.{noptmax}.obs.csv"))
     assert oe.shape[0] == noise.shape[0], "stack and noise shapes do not match; failed runs?"
     if dsi.dsivc_args.get("track_stack",False):
         # write long form oe
