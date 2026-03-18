@@ -396,7 +396,7 @@ def prepare_dsi_dir(obsdata,train_data,groups,fit_groups,transforms=None):
         dsi._prefit_truth_rowwise_scaler()
         assert dsi._truth_rowwise_scaler is not None, "row-wise scaler not set!"
     t_d="dsi_template"
-    pst = dsi.prepare_pestpp(t_d=t_d,observation_data=obsdata)
+    pst = dsi.prepare_pestpp(t_d=t_d,observation_data=obsdata, use_runstor=True)
 
     #shutil.copy2("pestpp-ies", os.path.join(t_d,"pestpp-ies"))
     get_bins(t_d,bin_path="bin",fnames=['pestpp-ies'])
@@ -430,7 +430,7 @@ def prepare_dsi_dir(obsdata,train_data,groups,fit_groups,transforms=None):
 
     return dsi, pst
 
-def run_dsi(t_d="dsi_template",tag="row"):
+def run_dsi(t_d="dsi_template",tag="row",_use_runstor=True):
     if tag=="row":
         dsi = DSI.load(os.path.join(t_d,"dsi.pickle"))
     elif tag.startswith("standard"):
@@ -439,15 +439,19 @@ def run_dsi(t_d="dsi_template",tag="row"):
     md = f"master_dsi"+f"_{tag}"
     num_workers = 15
     worker_root = "."
-    pyemu.os_utils.start_workers(
-        t_d,"pestpp-ies","dsi.pst", num_workers=num_workers,
-        worker_root=worker_root, master_dir=md, #port=_get_port(),
-        ppw_function=pyemu.helpers.dsi_pyworker,
-        ppw_kwargs={
-            "dsi": dsi, "pvals": pvals,
-        }
-    )
-    cleanup_pypestworker_logs(".")
+    if _use_runstor is True:
+        pyemu.os_utils.run("pestpp-ies dsi.pst /e", cwd=t_d, verbose=True)
+
+    else:
+        pyemu.os_utils.start_workers(
+            t_d,"pestpp-ies","dsi.pst", num_workers=num_workers,
+            worker_root=worker_root, master_dir=md, #port=_get_port(),
+            ppw_function=pyemu.helpers.dsi_pyworker,
+            ppw_kwargs={
+                "dsi": dsi, "pvals": pvals,
+            }
+        )
+        cleanup_pypestworker_logs(".")
     return
 
 def plot_results():
@@ -792,9 +796,9 @@ def plot_rowwise_scaling():
 
 if __name__ == "__main__":
 
-    run_freyberg =              True
+    run_freyberg =              False
     run_convenient_truth =      True
-    run_inconvenient_truth =    True
+    run_inconvenient_truth =    False
 
     if run_freyberg:
         run_training_ensemble()
@@ -868,7 +872,7 @@ if __name__ == "__main__":
                                 transforms=None)
         run_dsi(tag="row")
 
-        plot_results()
+    plot_results()
 
 
     plot_publication()
