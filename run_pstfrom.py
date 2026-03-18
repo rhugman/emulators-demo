@@ -1206,6 +1206,7 @@ def run_pstfrom(template_ws):
     assert pe.shape[1] == pst.npar
 
     pst.pestpp_options['ies_parameter_ensemble'] = 'prior_pe.jcb'
+    pst.write(os.path.join(template_ws, 'pest.pst'),version=2)
 
 
 
