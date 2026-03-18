@@ -35,7 +35,7 @@ assert os.path.exists(mou_path), "pestpp-mou not found"
 
 
 
-def get_bins(dst,bin_path="bin",fnames=['pestpp-ies']):
+def get_bins(dst,bin_path="bin"):
     if platform.system() == "Windows":
         bin_path = os.path.join(bin_path, "win")
     elif platform.system() == "Linux":
@@ -43,7 +43,7 @@ def get_bins(dst,bin_path="bin",fnames=['pestpp-ies']):
     elif platform.system() == "Darwin":
         bin_path = os.path.join(bin_path, "mac")
 
-    for f in fnames:
+    for f in os.listdir(bin_path):
         shutil.copy2(os.path.join(bin_path,f),os.path.join(dst,f)) 
 
     return
@@ -52,6 +52,12 @@ def get_bins(dst,bin_path="bin",fnames=['pestpp-ies']):
 def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=15,ies_num_reals=1000,noptmax=-1):
 
     org_t_d = os.path.join("templates","freyberg_template")
+    if not os.path.exists(org_t_d):
+        from run_pstfrom import run_pstfrom,set_weights
+        run_pstfrom(org_t_d)
+        set_weights(org_t_d)
+
+
     if os.path.exists(t_d):
         shutil.rmtree(t_d)
     shutil.copytree(org_t_d,t_d)
