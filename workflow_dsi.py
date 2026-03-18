@@ -33,6 +33,15 @@ if not os.path.exists(mou_path):
     pyemu.utils.get_pestpp(bin_path)
 assert os.path.exists(mou_path), "pestpp-mou not found"
 
+# get modflow 6 executable
+mf6exe = "mf6"+exe
+mf6_path = os.path.abspath(os.path.join(bin_path, mf6exe))
+if not os.path.exists(mf6_path):
+    flopy.utils.get_modflow(bin_path,repo="modflow6",subset='mf6')
+    assert os.path.exists(mf6_path), "mf6 not found"
+mp7exe = "mp7"+exe
+mp7_path = os.path.abspath(os.path.join(bin_path, mp7exe))
+assert os.path.exists(mf6_path), "mp7 not found"
 
 
 def get_bins(dst,bin_path="bin"):
@@ -43,10 +52,17 @@ def get_bins(dst,bin_path="bin"):
     elif platform.system() == "Darwin":
         bin_path = os.path.join(bin_path, "mac")
 
+<<<<<<< HEAD
     for f in os.listdir(bin_path):
         shutil.copy2(os.path.join(bin_path,f),os.path.join(dst,f)) 
+=======
+    for f in fnames:
+        shutil.copy2(os.path.join(bin_path,f),os.path.join(dst,f))
+>>>>>>> 58a1bdd (fixing binary handling)
 
     return
+
+
 
 
 def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=15,ies_num_reals=1000,noptmax=-1):
@@ -62,7 +78,7 @@ def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=15,i
         shutil.rmtree(t_d)
     shutil.copytree(org_t_d,t_d)
 
-
+    get_bins(t_d,fnames=['pestpp-ies','mf6'])
 
     pst = pyemu.Pst(os.path.join(t_d,"freyberg_mf6.pst"))
 
@@ -802,9 +818,9 @@ def plot_rowwise_scaling():
 
 if __name__ == "__main__":
 
-    run_freyberg =              False
+    run_freyberg =              True
     run_convenient_truth =      True
-    run_inconvenient_truth =    False
+    run_inconvenient_truth =    True
 
     if run_freyberg:
         run_training_ensemble()
