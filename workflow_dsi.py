@@ -52,13 +52,10 @@ def get_bins(dst,bin_path="bin"):
     elif platform.system() == "Darwin":
         bin_path = os.path.join(bin_path, "mac")
 
-<<<<<<< HEAD
+
     for f in os.listdir(bin_path):
-        shutil.copy2(os.path.join(bin_path,f),os.path.join(dst,f)) 
-=======
-    for f in fnames:
         shutil.copy2(os.path.join(bin_path,f),os.path.join(dst,f))
->>>>>>> 58a1bdd (fixing binary handling)
+
 
     return
 
@@ -78,7 +75,7 @@ def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=15,i
         shutil.rmtree(t_d)
     shutil.copytree(org_t_d,t_d)
 
-    get_bins(t_d,fnames=['pestpp-ies','mf6'])
+    get_bins(t_d)
 
     pst = pyemu.Pst(os.path.join(t_d,"freyberg_mf6.pst"))
 
@@ -142,7 +139,7 @@ def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=15,i
 
     f = "pestpp-ies"
     #shutil.copy2(os.path.join("bin","mac",f),os.path.join(t_d,f))
-    get_bins(t_d,bin_path="bin",fnames=['pestpp-ies'])
+    get_bins(t_d)
 
     # rewirte and deploy
     pst.write(os.path.join(t_d,"pest.pst"),version=2)
@@ -421,7 +418,7 @@ def prepare_dsi_dir(obsdata,train_data,groups,fit_groups,transforms=None):
     pst = dsi.prepare_pestpp(t_d=t_d,observation_data=obsdata, use_runstor=True)
 
     #shutil.copy2("pestpp-ies", os.path.join(t_d,"pestpp-ies"))
-    get_bins(t_d,bin_path="bin",fnames=['pestpp-ies'])
+    get_bins(t_d)
     # Predict using zero latent vector to get the mean shape in scaled space
     pvals = np.zeros_like(dsi.s)
     pred = dsi.predict(pvals)
