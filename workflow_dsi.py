@@ -214,8 +214,8 @@ def choose_inconvenient_truth(pst, oe, usecol="gage-1",ascending=True):
 
     check = oe.loc[:,forecasts].copy()
     sorted_index = check.sum(axis=1).sort_values(ascending=ascending).index.values
-    truth_real = sorted_index[-1]
-    sorted_index = sorted_index[:-1]
+    truth_real = sorted_index[-3]
+    sorted_index = sorted_index[:-3]
 
     return truth_real, sorted_index
 
@@ -869,7 +869,7 @@ if __name__ == "__main__":
         oe,pst = load_training_data('master_prior')
         drop_obs(pst,"master_prior")
         truth_real, sorted_index = choose_inconvenient_truth(pst,oe,
-                                                            usecol="trgw-0-13-10",#"gage-1",
+                                                            usecol="trgw-0-13-10",#"gage-1",#
                                                             ascending=True,
                                                             )
         data, obsdata, well_input_cols = add_wellpars_to_data(pst,oe)
