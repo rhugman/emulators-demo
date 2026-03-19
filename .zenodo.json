@@ -1,0 +1,35 @@
+{
+    "title": "Emulator-Assisted Modelling Workflows with pyEMU and PEST++",
+    "description": "Workflow scripts and example cases demonstrating emulator-assisted modelling using Gaussian Process Regression (GPR) and Data-Space Inversion (DSI) with pyEMU and PEST++.",
+    "creators": [
+        {
+            "name": "Hugman, Rui",
+            "orcid": "0000-0003-0891-3886",
+            "affiliation": "INTERA Geosciences, Pty Ltd"
+        },
+            {
+        "name": "White, Jeremy",
+        "orcid": "0000-0002-4950-1469",
+        "affiliation": "INTERA Incorporated"
+    }
+    ],
+    "license": "GPL-3.0",
+    "upload_type": "software",
+    "keywords": [
+        "emulators",
+        "groundwater modelling",
+        "Gaussian Process Regression",
+        "Data-Space Inversion",
+        "pyEMU",
+        "PEST++",
+        "uncertainty analysis",
+        "history matching"
+    ],
+    "related_identifiers": [
+        {
+            "identifier": "https://github.com/rhugman/emulators-demo",
+            "relation": "isSupplementTo",
+            "scheme": "url"
+        }
+    ]
+}
