@@ -9,6 +9,7 @@ from pyemu.emulators.dsi import DSI
 import platform
 
 
+MAX_WORKERS = max(1, os.cpu_count() // 2)
 # set random seed
 np.random.seed(42)
 
@@ -32,16 +33,16 @@ if not os.path.exists(ies_path):
 if not os.path.exists(mou_path):
     pyemu.utils.get_pestpp(bin_path)
 assert os.path.exists(mou_path), "pestpp-mou not found"
-
+    
 # get modflow 6 executable
 mf6exe = "mf6"+exe
 mf6_path = os.path.abspath(os.path.join(bin_path, mf6exe))
 if not os.path.exists(mf6_path):
-    flopy.utils.get_modflow(bin_path,repo="modflow6",subset='mf6')
+    flopy.utils.get_modflow(bin_path,repo="modflow6",subset=mf6exe)
     assert os.path.exists(mf6_path), "mf6 not found"
 mp7exe = "mp7"+exe
 mp7_path = os.path.abspath(os.path.join(bin_path, mp7exe))
-assert os.path.exists(mf6_path), "mp7 not found"
+assert os.path.exists(mp7_path), "mp7 not found"
 
 
 def get_bins(dst,bin_path="bin"):
@@ -62,7 +63,7 @@ def get_bins(dst,bin_path="bin"):
 
 
 
-def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=15,ies_num_reals=1000,noptmax=-1):
+def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=MAX_WORKERS,ies_num_reals=1000,noptmax=-1):
 
     org_t_d = os.path.join("templates","freyberg_template")
     if not os.path.exists(org_t_d):
@@ -454,7 +455,7 @@ def run_dsi(t_d="dsi_template",tag="row",_use_runstor=True):
     dsi = DSI.load(os.path.join(t_d,"dsi.pickle"))
     pvals = pd.read_csv(os.path.join(t_d, "dsi_pars.csv"), index_col=0)
     md = f"master_dsi"+f"_{tag}"
-    num_workers = 15
+    num_workers = MAX_WORKERS
     worker_root = "."
     if _use_runstor is True:
         shutil.copytree(t_d,md)
