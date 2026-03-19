@@ -191,7 +191,8 @@ def run_gpr_mou(gpr_t_d,noptmax=8,inipop=None):
     gpr_m_d = gpr_t_d.replace("template","master")
     num_workers = 10
     if USE_RUNSTOR is True:
-        pyemu.os_utils.run(f"{mou_path} pest_gpr.pst /e", cwd=gpr_t_d, verbose=True)
+        shutil.copytree(gpr_t_d,gpr_m_d)
+        pyemu.os_utils.run(f"{mou_path} pest_gpr.pst /e", cwd=gpr_m_d, verbose=True)
     else:
         pyemu.os_utils.start_workers(gpr_t_d,mou_path,"pest_gpr.pst",
                                     num_workers=num_workers,
@@ -209,7 +210,8 @@ def run_gpr_sweep(gpr,gpr_t_d):
     gpr_sweep_d = gpr_t_d.replace("template","sweep")
     num_workers = 10
     if USE_RUNSTOR is True:
-        pyemu.os_utils.run(f"{ies_path} pest_gpr.pst /e", cwd=gpr_t_d, verbose=True)
+        shutil.copytree(gpr_t_d,gpr_sweep_d)
+        pyemu.os_utils.run(f"{ies_path} pest_gpr.pst /e", cwd=gpr_sweep_d, verbose=True)
     else:
         pyemu.os_utils.start_workers(gpr_t_d,
                                  ies_path,"pest_gpr.pst", num_workers=num_workers, worker_root=".",#port=5544,
