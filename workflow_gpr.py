@@ -9,7 +9,7 @@ import platform
 from pyemu.emulators import GPR
 
 USE_RUNSTOR = True
-MAX_WORKERS = max(1, os.cpu_count() // 2)
+MAX_WORKERS = max(1, os.cpu_count() - 1)
 # set random seed
 np.random.seed(42)
 

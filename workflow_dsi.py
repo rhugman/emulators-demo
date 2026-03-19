@@ -9,7 +9,7 @@ from pyemu.emulators.dsi import DSI
 import platform
 
 
-MAX_WORKERS = max(1, os.cpu_count() // 2)
+MAX_WORKERS = max(1, os.cpu_count() - 1)
 # set random seed
 np.random.seed(42)
 
@@ -458,6 +458,8 @@ def run_dsi(t_d="dsi_template",tag="row",_use_runstor=True):
     num_workers = MAX_WORKERS
     worker_root = "."
     if _use_runstor is True:
+        if os.path.exists(md):
+            shutil.rmtree(md)
         shutil.copytree(t_d,md)
         pyemu.os_utils.run("pestpp-ies dsi.pst /e", cwd=md, verbose=True)
 
