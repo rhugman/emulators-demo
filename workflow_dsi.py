@@ -77,7 +77,7 @@ def run_training_ensemble(t_d="pst_template",m_d='master_prior',num_workers=15,i
 
     get_bins(t_d)
 
-    pst = pyemu.Pst(os.path.join(t_d,"freyberg_mf6.pst"))
+    pst = pyemu.Pst(os.path.join(t_d,"pest.pst"))
 
     # set the number of realizations; relies on existence of the prior jcb
     pst.pestpp_options["ies_num_reals"] = ies_num_reals
