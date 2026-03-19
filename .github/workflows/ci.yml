@@ -28,6 +28,15 @@ jobs:
       - name: Run GPR workflow
         run: python workflow_gpr.py
 
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpr-results-${{ matrix.os }}
+          path: '*.pdf'
+          retention-days: 30
+          if-no-files-found: error
+
   workflow-dsi:
     name: DSI workflow (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -49,3 +58,12 @@ jobs:
 
       - name: Run DSI workflow
         run: python workflow_dsi.py
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-results-${{ matrix.os }}
+          path: '*.pdf'
+          retention-days: 30
+          if-no-files-found: error
