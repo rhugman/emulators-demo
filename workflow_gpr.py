@@ -9,6 +9,7 @@ import platform
 from pyemu.emulators import GPR
 
 USE_RUNSTOR = True
+MAX_WORKERS = max(1, os.cpu_count() // 2)
 # set random seed
 np.random.seed(42)
 
@@ -51,7 +52,7 @@ def map_hosaki(t_d):
 
     pst.write(os.path.join(t_d,"pest.pst"))
     port = 5544
-    num_workers = 10
+    num_workers = MAX_WORKERS
     sys.path.insert(0,t_d)
     from forward_run import hosaki_ppw_worker as ppw_function
     pyemu.os_utils.start_workers(t_d,ies_path,"pest.pst",
@@ -97,7 +98,7 @@ def plot_obj_map(_sweep_x,_sweep_y,_sweep_z,label="objective function",
     plt.close(fig)
 
 
-def run_hosaki_process_mou(t_d,m_d="hosaki_model_master",popsize=10,noptmax=-1,full_bounds=False,num_workers = 1):
+def run_hosaki_process_mou(t_d,m_d="hosaki_model_master",popsize=10,noptmax=-1,full_bounds=False,num_workers=MAX_WORKERS):
     sys.path.insert(0,t_d)
     from forward_run import hosaki_ppw_worker as ppw_function
     port = 5544
@@ -189,8 +190,10 @@ def run_gpr_mou(gpr_t_d,noptmax=8,inipop=None):
     gpst.pestpp_options["mou_dv_population_file"] = "inipop.csv"
     gpst.write(os.path.join(gpr_t_d,"pest_gpr.pst"))
     gpr_m_d = gpr_t_d.replace("template","master")
-    num_workers = 10
+    num_workers = MAX_WORKERS
     if USE_RUNSTOR is True:
+        if os.path.exists(gpr_m_d):
+            shutil.rmtree(gpr_m_d)
         shutil.copytree(gpr_t_d,gpr_m_d)
         pyemu.os_utils.run(f"{mou_path} pest_gpr.pst /e", cwd=gpr_m_d, verbose=True)
     else:
@@ -208,8 +211,10 @@ def run_gpr_sweep(gpr,gpr_t_d):
     #gpr = GPR.load(os.path.join(gpr_t_d,"gpr_emulator.pkl"))
     input_df = pd.read_csv(os.path.join(gpr_t_d,"gpr_input.csv"),index_col=0)
     gpr_sweep_d = gpr_t_d.replace("template","sweep")
-    num_workers = 10
+    num_workers = MAX_WORKERS
     if USE_RUNSTOR is True:
+        if os.path.exists(gpr_sweep_d):
+            shutil.rmtree(gpr_sweep_d)
         shutil.copytree(gpr_t_d,gpr_sweep_d)
         pyemu.os_utils.run(f"{ies_path} pest_gpr.pst /e", cwd=gpr_sweep_d, verbose=True)
     else:
@@ -465,7 +470,7 @@ if __name__ == "__main__":
 
     t_d = os.path.join("templates","hosaki_template")
     m_d = "hosaki_model_master_full"
-    num_workers = 10
+    num_workers = MAX_WORKERS
     run_hosaki_process_mou(t_d, m_d=m_d,popsize=num_workers,noptmax=100,full_bounds=True,num_workers=num_workers)
     
     plot_pub()
