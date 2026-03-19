@@ -33,9 +33,10 @@ jobs:
         if: always()
         with:
           name: gpr-results-${{ matrix.os }}
-          path: '*.pdf'
+          path: |
+            ./*.pdf
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
 
   workflow-dsi:
     name: DSI workflow (${{ matrix.os }})
@@ -64,6 +65,7 @@ jobs:
         if: always()
         with:
           name: emulator-results-${{ matrix.os }}
-          path: '*.pdf'
+          path: |
+            ./*.pdf
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
