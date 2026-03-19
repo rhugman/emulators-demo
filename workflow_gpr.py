@@ -471,7 +471,7 @@ if __name__ == "__main__":
     t_d = os.path.join("templates","hosaki_template")
     m_d = "hosaki_model_master_full"
     num_workers = MAX_WORKERS
-    run_hosaki_process_mou(t_d, m_d=m_d,popsize=10,noptmax=100,full_bounds=True,num_workers=num_workers)
+    run_hosaki_process_mou(t_d, m_d=m_d,popsize=15,noptmax=100,full_bounds=True,num_workers=num_workers)
     
     plot_pub()
 
