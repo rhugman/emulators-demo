@@ -1,6 +1,6 @@
 # emulators-demo
 
-[![DOI](https://zenodo.org/badge/DOI/19111360.svg)](https://doi.org/19111360)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19111360.svg)](https://doi.org/10.5281/zenodo.19111360)
 
 This repository contains workflow scripts and example cases to demonstrate emulator-assisted modelling workflows using pyEMU and PEST++.
 
