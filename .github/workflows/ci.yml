@@ -24,9 +24,12 @@ jobs:
           environment-file: environment.yml
           activate-environment: emul
           miniforge-version: latest
+          cache-environment: true
 
       - name: Run GPR workflow
         run: python workflow_gpr.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -56,9 +59,12 @@ jobs:
           environment-file: environment.yml
           activate-environment: emul
           miniforge-version: latest
+          cache-environment: true
 
       - name: Run DSI workflow
         run: python workflow_dsi.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload results
         uses: actions/upload-artifact@v4
