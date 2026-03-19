@@ -1,5 +1,7 @@
 # emulators-demo
 
+[![DOI](https://zenodo.org/badge/DOI/<YOUR_DOI>.svg)](https://doi.org/<YOUR_DOI>)
+
 This repository contains workflow scripts and example cases to demonstrate emulator-assisted modelling workflows using pyEMU and PEST++.
 
 ## Contents
@@ -36,3 +38,11 @@ To run the DSI examples:
 ```bash
 python workflow_dsi.py
 ```
+
+## Citation
+
+If you use this software, please cite it using the DOI badge above. Metadata for Zenodo is maintained in [.zenodo.json](.zenodo.json).
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.

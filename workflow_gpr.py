@@ -9,6 +9,7 @@ import platform
 from pyemu.emulators import GPR
 
 USE_RUNSTOR = True
+MAX_WORKERS = max(1, os.cpu_count() - 1)
 # set random seed
 np.random.seed(42)
 
@@ -51,7 +52,7 @@ def map_hosaki(t_d):
 
     pst.write(os.path.join(t_d,"pest.pst"))
     port = 5544
-    num_workers = 10
+    num_workers = MAX_WORKERS
     sys.path.insert(0,t_d)
     from forward_run import hosaki_ppw_worker as ppw_function
     pyemu.os_utils.start_workers(t_d,ies_path,"pest.pst",
@@ -74,17 +75,17 @@ def load_hosaki_sweep_data(sweep_d):
     return sweep_x,sweep_y,sweep_z
 
 def get_obj_map(ax,_sweep_x,_sweep_y,_sweep_z,label="objective function",
-                levels=[-2,-1,0,0.5],vmin=-2,vmax=0.5,cmap="magma"): 
+                levels=[-2,-1,0,0.5],vmin=-2,vmax=0.5,cmap="magma",add_colorbar=True): 
     """a simple function to plot an objective function surface"""
     cb = ax.pcolormesh(_sweep_x,_sweep_y,_sweep_z,vmin=vmin,vmax=vmax,cmap=cmap)
-    cbar = plt.colorbar(cb,ax=ax,shrink=0.8)
-    cbar.ax.tick_params(labelsize=8)
-    cbar.set_label(label,size=8)
-    #cbar.ax.yaxis.label.set_size(8)
+    if add_colorbar:
+        cbar = plt.colorbar(cb,ax=ax,shrink=0.8)
+        cbar.ax.tick_params(labelsize=8)
+        cbar.set_label(label,size=8)
     ax.contour(_sweep_x,_sweep_y,_sweep_z,levels=levels,colors="w",linewidths=0.5)
     
     ax.set_aspect("equal")
-    return ax
+    return ax, cb
 
 def plot_obj_map(_sweep_x,_sweep_y,_sweep_z,label="objective function",
                  levels=[-2,-1,0,0.5],vmin=-2,vmax=0.5,cmap="magma"):
@@ -97,7 +98,7 @@ def plot_obj_map(_sweep_x,_sweep_y,_sweep_z,label="objective function",
     plt.close(fig)
 
 
-def run_hosaki_process_mou(t_d,m_d="hosaki_model_master",popsize=10,noptmax=-1,full_bounds=False,num_workers = 1):
+def run_hosaki_process_mou(t_d,m_d="hosaki_model_master",popsize=10,noptmax=-1,full_bounds=False,num_workers=MAX_WORKERS):
     sys.path.insert(0,t_d)
     from forward_run import hosaki_ppw_worker as ppw_function
     port = 5544
@@ -189,8 +190,10 @@ def run_gpr_mou(gpr_t_d,noptmax=8,inipop=None):
     gpst.pestpp_options["mou_dv_population_file"] = "inipop.csv"
     gpst.write(os.path.join(gpr_t_d,"pest_gpr.pst"))
     gpr_m_d = gpr_t_d.replace("template","master")
-    num_workers = 10
+    num_workers = MAX_WORKERS
     if USE_RUNSTOR is True:
+        if os.path.exists(gpr_m_d):
+            shutil.rmtree(gpr_m_d)
         shutil.copytree(gpr_t_d,gpr_m_d)
         pyemu.os_utils.run(f"{mou_path} pest_gpr.pst /e", cwd=gpr_m_d, verbose=True)
     else:
@@ -208,8 +211,10 @@ def run_gpr_sweep(gpr,gpr_t_d):
     #gpr = GPR.load(os.path.join(gpr_t_d,"gpr_emulator.pkl"))
     input_df = pd.read_csv(os.path.join(gpr_t_d,"gpr_input.csv"),index_col=0)
     gpr_sweep_d = gpr_t_d.replace("template","sweep")
-    num_workers = 10
+    num_workers = MAX_WORKERS
     if USE_RUNSTOR is True:
+        if os.path.exists(gpr_sweep_d):
+            shutil.rmtree(gpr_sweep_d)
         shutil.copytree(gpr_t_d,gpr_sweep_d)
         pyemu.os_utils.run(f"{ies_path} pest_gpr.pst /e", cwd=gpr_sweep_d, verbose=True)
     else:
@@ -385,7 +390,6 @@ def hosaki_gpr_demo():
 def plot_pub():
     def load_gpr_sweep_data(_gpr_sweep_d,sweep_steps=30):
         gpst = pyemu.Pst(os.path.join(_gpr_sweep_d,"pest_gpr.pst"))
-        #load the gpr sweep results to viz the emulated objective function surface
         sweep_gpr_pe = pd.read_csv(os.path.join(_gpr_sweep_d,"pest_gpr.0.par.csv"),index_col=0)
         sweep_gpr_oe = pd.read_csv(os.path.join(_gpr_sweep_d,"pest_gpr.0.obs.csv"),index_col=0)
         gpr_sweep_x = sweep_gpr_pe.loc[:,gpst.par_names[0]].values.reshape(sweep_steps,sweep_steps)
@@ -397,60 +401,66 @@ def plot_pub():
     iiters = [i.split("_")[-1] for i in os.listdir() if i.startswith("master_gpr_")]
     iiters.sort()
 
-    fig,axs = plt.subplots(2,3,figsize=(6.75,4),sharex=True,sharey=True)
-    axs = axs.flatten()
+    fig, axs = plt.subplots(2, 3, figsize=(6.75, 4.5), sharex=True, sharey=True)
 
     pst = pyemu.Pst(os.path.join("hosaki_template","pest.pst"))
     par = pst.parameter_data
     sweep_x,sweep_y,sweep_z = load_hosaki_sweep_data("hosaki_sweep")
-    get_obj_map(axs[0],sweep_x,sweep_y,sweep_z)
-    axs[0].set_title("(a) Truth",size=10)
+    _, mappable = get_obj_map(axs[0,0], sweep_x, sweep_y, sweep_z, add_colorbar=False)
+    axs[0,0].set_title("(a) Truth", size=10)
 
-    data_dict = {}
     data = None
     m_d = "hosaki_model_master"
     counter = 1
     for iiter in iiters:
-        ax = axs[int(iiter)+1]
-        
-        
-        _m_d = m_d+ f"_{iiter}"
+        idx = int(iiter) + 1
+        row, col = divmod(idx, 3)
+        ax = axs[row, col]
+
+        _m_d = m_d + f"_{iiter}"
         _gpr_t_d = f"template_gpr_{iiter}"
         _gpr_m_d = _gpr_t_d.replace("template","master")
         _sweep_md = _gpr_t_d.replace("template","sweep")
 
-        # load the training data
         pst, training_dvpop, training_opop = load_hosaki_training_data(_m_d)
         _data = training_dvpop.join(training_opop).copy()
         if data is None:
             data = _data
-        elif isinstance(data,pd.DataFrame):
-            data = pd.concat([data,_data],axis=0)
-            print("training data size:",data.shape)
+        elif isinstance(data, pd.DataFrame):
+            data = pd.concat([data, _data], axis=0)
+            print("training data size:", data.shape)
         gpr_sweep_x, gpr_sweep_y, gpr_sweep_z, gpr_sweep_stdev_z = load_gpr_sweep_data(_sweep_md)
-        get_obj_map(ax,gpr_sweep_x,gpr_sweep_y,gpr_sweep_z)
-        
-        ax.scatter(data.loc[:,pst.par_names[0]],data.loc[:,pst.par_names[1]],marker='.',c='w',s=10)
+        get_obj_map(ax, gpr_sweep_x, gpr_sweep_y, gpr_sweep_z, add_colorbar=False)
+
+        ax.scatter(data.loc[:,pst.par_names[0]], data.loc[:,pst.par_names[1]], marker='.', c='w', s=10)
 
         fnames = [i for i in os.listdir(_gpr_m_d) if i.endswith(".dv_pop.csv") and ".archive." not in i and i.count(".")==3]
         fnames.sort(key=lambda x: int(x.split(".")[1]))
-        dvopt = pd.read_csv(os.path.join(_gpr_m_d,fnames[-1]),index_col=0)
-        ax.scatter(dvopt.loc[:,pst.par_names[0]],dvopt.loc[:,pst.par_names[1]],marker='.',c='r',s=10)
-        
-        char = chr(97 + counter)  # 97 is the ASCII code for 'a'
-        counter+=1
-        ax.set_title(f"({char}) Iteration {iiter}",size=10)
+        dvopt = pd.read_csv(os.path.join(_gpr_m_d, fnames[-1]), index_col=0)
+        ax.scatter(dvopt.loc[:,pst.par_names[0]], dvopt.loc[:,pst.par_names[1]], marker='.', c='cyan', s=10)
 
+        char = chr(97 + counter)
+        counter += 1
+        ax.set_title(f"({char}) Iteration {iiter}", size=10)
 
-    for ax in axs:
-        ax.set_xlabel(pst.par_names[0],size=8)
-        ax.set_ylabel(pst.par_names[1],size=8)
-        # ticklabel size
+    # x-labels only on bottom row
+    for ax in axs[1, :]:
+        ax.set_xlabel(pst.par_names[0], size=8)
+    # y-labels only on left column
+    for ax in axs[:, 0]:
+        ax.set_ylabel(pst.par_names[1], size=8)
+    for ax in axs.flat:
         ax.tick_params(axis='both', which='major', labelsize=8)
         ax.grid()
 
-    fig.tight_layout()
-    fig.savefig("hosaki_gpr_emulator_figure.pdf",dpi=600)
+    # shared colorbar spanning both rows
+    fig.subplots_adjust(right=0.88)
+    cbar_ax = fig.add_axes([0.9, 0.15, 0.02, 0.7])
+    cbar = fig.colorbar(mappable, cax=cbar_ax)
+    cbar.ax.tick_params(labelsize=8)
+    cbar.set_label("objective function", size=8)
+
+    fig.savefig("hosaki_gpr_emulator_figure.pdf", dpi=600)
     return
 
 def cleanup_pypestworker_logs(t_d):
@@ -465,8 +475,8 @@ if __name__ == "__main__":
 
     t_d = os.path.join("templates","hosaki_template")
     m_d = "hosaki_model_master_full"
-    num_workers = 10
-    run_hosaki_process_mou(t_d, m_d=m_d,popsize=num_workers,noptmax=100,full_bounds=True,num_workers=num_workers)
+    num_workers = MAX_WORKERS
+    run_hosaki_process_mou(t_d, m_d=m_d,popsize=15,noptmax=100,full_bounds=True,num_workers=num_workers)
     
     plot_pub()
 
